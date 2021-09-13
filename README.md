@@ -21,19 +21,19 @@ AT89S系列MCU是ATMEL公司開發的MCS-51族系單晶片
 6.（計畫中）內建串列埠資料繪圖器，將串列埠資料即時繪製圖形  
 
 ## 限制  
-僅能使用ATMEL 89S 系列之8051核心MCU. 
+僅能使用ATMEL 89S 系列之 8051 核心 MCU. 
 
 ## 原理  
 ### 程式上傳器  
 程式上傳器（ArduinoAsISP）運作原理圖  
-![](arduinoAs51ISP.png)  
+![](arduinoAs51ISP.png) 
 這個ArduinoAsISP有修改過  
 可以讓ArduinoAsISP除了原本的程式上傳功能外  
 還可以自動切換成串列埠資料中繼站  
 注意！！  
 這裡的ArduinoAsISP一定要使用核心為32u4的Arduino  
 程式上傳器的接線圖    
-![](ISP.png). 
+![](ISP.png) 
 
 ### 整合開發環境（IDE）  
 IDE本身使用python語言開發  
@@ -47,6 +47,8 @@ IDE本身使用python語言開發
 另外sdcc與avrdude也要另行下載安裝  
 程式下載器必須使用32u4核心的arduino  
 89S52使用電路圖  
-![](SCH.png). 
+![](SCH.png) 
   
 ## 注意事項  
+僅能使用ATMEL 89S 系列之 8051 MCU  
+相關操作需有經驗方可為之，惟風險自負  
