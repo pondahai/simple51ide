@@ -17,4 +17,4 @@ AT89S系列MCU是ATMEL公司開發的MCS-51族系單晶片
 6.（計畫中）內建串列埠資料繪圖器，將串列埠資料即時繪製圖形  
 
 程式上傳器（ArduinoAsISP）運作原理圖  
-[](./arduinoAs51ISP.png)
+[](arduinoAs51ISP.png)
