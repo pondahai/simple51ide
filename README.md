@@ -42,7 +42,11 @@ AT89S系列MCU是ATMEL公司開發的MCS-51族系單晶片
 這裡的ArduinoAsISP一定要使用核心為32u4的Arduino  
 程式上傳器的接線圖    
 ![](ISP.png) 
-
+因為89S系列跟AVR系列（arduino用）都是ATMEL出的MCU  
+他們的ISP協定是相同的  
+差別是acrdude程式需要在原avrdude.conf中加入89S52的設定  
+這樣avrdude才能上傳程式給89S系列  
+  
 ### 整合開發環境（IDE）  
 IDE本身使用python語言開發  
 整體使用tk圖形化介面為架構  
