@@ -7,6 +7,7 @@
 ## line number: https://stackoverflow.com/questions/16369470/tkinter-adding-line-number-to-text-widget
 ## subprocess realtime output: https://www.endpoint.com/blog/2015/01/getting-realtime-output-using-python/
 ## serialTerminal: https://github.com/pyserial/pyserial/blob/master/examples/wxTerminal.py
+## avrdude.conf: https://www.instructables.com/Program-8051-With-Arduino/
 
 # Importing Required libraries & Modules
 from tkinter import *
