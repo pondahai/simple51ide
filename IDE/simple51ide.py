@@ -14,13 +14,13 @@ from tkinter import *
 from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
+import serial
 import serial.tools.list_ports
 import subprocess
 import time
 import os
 import TKlighter
 import fcntl
-
 
 class TextLineNumbers(Canvas):
     def __init__(self, *args, **kwargs):
@@ -502,10 +502,19 @@ class TextEditor:
       return
     self.shell_output_insert_end("\nOK\n")
     
-    cmd = "stty -f /dev/"+str(self.portDeviceName)+" ispeed 1200 ospeed 1200"
-    if self.execute_tool(cmd):
+    #cmd = "stty -f /dev/"+str(self.portDeviceName)+" ispeed 1200 ospeed 1200"
+    #if self.execute_tool(cmd):
+    #  return
+    #self.shell_output_insert_end("\nOK\n")
+    ## open and close the com port
+    self.shell_output_insert_end("\nOpening the com port...\n")
+    try:
+      with serial.Serial("/dev/"+str(self.portDeviceName), 1200, timeout=1) as ser:
+        ser.close()
+    except serial.SerialException as e:
+      self.shell_output_insert_end(e)
+      self.shell_output_insert_end("\nSomething wrong...\n")
       return
-    self.shell_output_insert_end("\nOK\n")
     
     self.shell_output_insert_end("Reseting ISP...\n")
     # waiting for the arduinoAsISP's 8 secends.
@@ -552,9 +561,13 @@ class TextEditor:
     # Binding Ctrl+u to undo funtion
     self.txtarea.bind("<Control-u>",self.undo)
 
+    self.txtarea.bind("<Command-b>",self.build)
     self.txtarea.bind("<Control-b>",self.build)
+    self.txtarea.bind("<Command-p>",self.upload)
     self.txtarea.bind("<Control-p>",self.upload)
+    self.txtarea.bind("<Command-t>",self.terminal)
     self.txtarea.bind("<Control-t>",self.terminal)
+    self.txtarea.bind("<Command-l>",self.plotter)
     self.txtarea.bind("<Control-l>",self.plotter)
 
 # Creating TK Container
