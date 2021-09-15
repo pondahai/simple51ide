@@ -11,7 +11,8 @@
 
 # Importing Required libraries & Modules
 from tkinter import *
-from tkinter import ttk
+from tkinter import font
+#from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
 import serial
