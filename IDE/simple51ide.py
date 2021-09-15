@@ -20,32 +20,6 @@ import os
 import TKlighter
 import fcntl
 
-# class LineNumbers(Text):
-#   def __init__(self, master, text_widget, **kwargs):
-#     super().__init__(master, **kwargs)
-#   
-#     self.text_widget = text_widget
-#     self.text_widget.bind('<KeyRelease>', self.on_key_release)
-#     self.text_widget.bind('<FocusIn>', self.on_key_release)
-#     self.text_widget.bind('<MouseWheel>', self.on_key_release)
-#     self.text_widget.bind('<Configure>', self.on_key_release)
-#     master.bind('<MouseWheel>', self.on_key_release)
-# 
-#     self.insert(1.0, '1')
-#     self.configure(state='disabled')
-#         
-#   def on_key_release(self, event=None):
-#     p, q = self.text_widget.index("@0,0").split('.')
-#     p = int(p)
-#     final_index = str(self.text_widget.index(END))
-#     num_of_lines = final_index.split('.')[0]
-#     line_numbers_string = "\n".join(str(p + no) for no in range(int(num_of_lines)))
-#     width = len(str(num_of_lines))
-#   
-#     self.configure(state='normal', width=width)
-#     self.delete(1.0, END)
-#     self.insert(1.0, line_numbers_string)
-#     self.configure(state='disabled')
 
 class TextLineNumbers(Canvas):
     def __init__(self, *args, **kwargs):
@@ -101,17 +75,6 @@ class CustomText(Text):
       self.event_generate("<<Change>>", when="tail")
 
 
-#     # avoid error when copying
-#     if command == 'get' and (args[0] == 'sel.first' and args[1] == 'sel.last') and not textArea.tag_ranges('sel'): return
-# 
-#     # avoid error when deleting
-#     if command == 'delete' and (args[0] == 'sel.first' and args[1] == 'sel.last') and not textArea.tag_ranges('sel'): return
-# 
-#     cmd = (self._orig, command) + args
-#     result = self.tk.call(cmd)
-# 
-#     if command in ('insert', 'delete', 'replace'):
-#                 self.event_generate('<<TextModified>>')
 
     # return what the actual widget returned
     return result
@@ -130,7 +93,7 @@ class TextEditor:
     # Title of the window
     self.root.title("Simple 51 IDE")
     # Window Geometry
-    self.root.geometry("640x640+200+150")
+    self.root.geometry("1024x640+200+150")
     # Initializing filename
     self.filename = None
     # Declaring Title variable
@@ -238,26 +201,8 @@ class TextEditor:
     self.txtarea.bind("<<Change>>", self._on_change)
     self.txtarea.bind("<Configure>", self._on_change)
     
-#     # Creating Scrollbar
-#     scrol_y = Scrollbar(frame_top,orient=VERTICAL)
-#     # Creating Text Area
-#     self.txtarea = Text(frame_top,yscrollcommand=scrol_y.set,insertbackground='black',fg='black',bg='white',font=("Courier",15,""),state="normal",relief=GROOVE)
-#     # Packing scrollbar to root window
-#     scrol_y.pack(side=RIGHT,fill=Y)
-#     # Adding Scrollbar to text area
-#     scrol_y.config(command=self.txtarea.yview)
-#     # Packing Text Area to root window
-#     
-#     #l = LineNumbers(frame_top, self.txtarea, width=2, font=("Courier",15,""))
-#     #l.pack(side=LEFT, fill=BOTH, expand=True)
     self.txtarea.pack(side=TOP, fill=BOTH, expand=True)
-    
-    
-    # line number area
-#     self.linenumber = Text(frame_top,width=2)
-#     self.linenumber.pack(side=LEFT)
-#     frame_top.pack()
-    
+        
     # shell output area
     scrol_y = Scrollbar(frame_bottom,orient=VERTICAL)
     self.outputarea = Text(frame_bottom,yscrollcommand=scrol_y.set,fg="green",bg='lightgray',font=("Courier",15,""),state="disabled",relief=GROOVE)
@@ -266,16 +211,9 @@ class TextEditor:
     self.outputarea.pack(side=BOTTOM, fill=BOTH, expand=True)
     frame_bottom.pack()
     
-#    framesWindow.pack(fill="both", expand=True)
-    
-#    frame_top = Frame(frames)
-#    frame_down = Frame(frames)
-#    frame_top.add(self.txtarea)
-#    frame_bottom.add(self.outputarea)
     framesWindow.add(frame_top)
     framesWindow.add(frame_bottom)
-#    frame_top.pack()
-#    frame_bottom.pack()
+
     framesWindow.pack(expand=True, fill=BOTH)
     # Calling shortcuts funtion
     self.shortcuts()
@@ -410,7 +348,8 @@ class TextEditor:
         self.settitle()
         # Updating Status
         self.status.set("Opened Successfully")
-        #self.light(event=None)
+        #self.light(Event(""))
+        self.outputarea.after(1,self.root.update_idletasks())
         self.root.event_generate('<KeyRelease>')
     except Exception as e:
       messagebox.showerror("Exception",e)
@@ -514,8 +453,13 @@ class TextEditor:
 
   def comport(self):
     pass
-
+  def shell_output_insert_end(self, output):
+    self.outputarea.insert(END, output)
+    self.outputarea.see(END)
+    self.outputarea.after(1,self.root.update_idletasks())
+    
   def execute_tool(self, cmd):
+    self.shell_output_insert_end(cmd+"\n")
     p=subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
     flags = fcntl.fcntl(p.stdout, fcntl.F_GETFL) # get current p.stdout flags
     fcntl.fcntl(p.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
@@ -525,96 +469,61 @@ class TextEditor:
         if output == '' and p.poll() is not None:
           break
         if output:
-          self.outputarea.insert(END, output)
-          self.outputarea.see(END)
-          self.outputarea.after(1,self.root.update_idletasks())
+          self.shell_output_insert_end(output)
     except EOFError:
         pass
     
     if p.returncode != 0:
-        self.outputarea.insert(END, "Something wrong...")
-        return
+      self.shell_output_insert_end("\nSomething wrong...\n")
+      return 1
+    else:
+      return 0  
     
-  def build(self):
+  def build(self,*args):
     self.outputarea.configure(state='normal')
     self.outputarea.delete("1.0",END)
-    self.outputarea.insert(END, self.filename+" saved.\n\n")
+    self.shell_output_insert_end(str(self.filename)+" saved.\n\n")
     self.savefile()
     ## echo \"\nsdcc $file\n\" && sdcc --verbose \"$file\"
-    cmd = "echo \"\nsdcc "+str(self.filename)+"\n\" && sdcc --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
-    self.execute_tool(cmd)
-#     with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True) as p:
-#       for line in p.stdout:
-#         self.outputarea.insert(END, line)
-#         self.outputarea.see(END)
-#         self.outputarea.after(1,self.root.update_idletasks())
-#     if p.returncode != 0:
-#         self.outputarea.insert(END, "Something wrong...")
-#         return
+    cmd = "sdcc --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    if self.execute_tool(cmd):
+      return
     
-    self.outputarea.insert(END, "\n\n")
-#     cmd = "echo \"\nsdcc "+str(self.filename)+"\n\" && /opt/homebrew/bin/sdcc --verbose \""+str(self.filename)+"\"" 
-#     output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, shell=True)
-#     self.outputarea.insert(END, output.strip())
-#     self.outputarea.configure(state='disabled')
-  def upload(self):
+    self.shell_output_insert_end("\nOK\n")
+  def upload(self,*args):
     self.outputarea.configure(state='normal')
     self.outputarea.delete("1.0",END)
-    self.outputarea.insert(END, self.filename+" saved.\n\n")
+    self.shell_output_insert_end(self.filename+" saved.\n\n")
     self.savefile()
     
-    cmd = "echo \"\nsdcc "+str(self.filename)+"\n\" && sdcc --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
-    self.execute_tool(cmd)
-#     with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True) as p:
-#       for line in p.stdout:
-#         self.outputarea.insert(END, line)
-#         self.outputarea.see(END)
-#         self.outputarea.after(1,self.root.update_idletasks())
-#     if p.returncode != 0:
-#         self.outputarea.insert(END, "Something wrong...")
-#         return
-#     
-#     self.outputarea.insert(END, "\n\n")
-#     self.outputarea.see(END)
-#     self.root.update_idletasks()
+    cmd = "sdcc --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    if self.execute_tool(cmd):
+      return
+    self.shell_output_insert_end("\nOK\n")
     
-    cmd = "/bin/stty -f /dev/"+str(self.portDeviceName)+" ispeed 1200 ospeed 1200"
-#     self.execute_tool(cmd)
-#     with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, universal_newlines=True) as p:
-#       for line in p.stdout:
-#         self.outputarea.insert(END, line)
-#         self.outputarea.see(END)
-#         self.outputarea.after(1,self.root.update_idletasks())
-#     if p.returncode != 0:
-#         self.outputarea.insert(END, "Something wrong...")
-#         return
-# 
-#     self.outputarea.insert(END, "\n\n")
-#     self.outputarea.see(END)
-#     self.root.update_idletasks()
-
-    self.outputarea.insert(END, "Reseting ISP...\n")
-    self.outputarea.see(END)
-    self.root.update_idletasks()
-
+    cmd = "stty -f /dev/"+str(self.portDeviceName)+" ispeed 1200 ospeed 1200"
+    if self.execute_tool(cmd):
+      return
+    self.shell_output_insert_end("\nOK\n")
+    
+    self.shell_output_insert_end("Reseting ISP...\n")
+    # waiting for the arduinoAsISP's 8 secends.
     for i in range(9):
       self.outputarea.insert(END, ".")
       self.outputarea.see(END)
       self.outputarea.after(1000,self.root.update_idletasks())
-    self.outputarea.insert(END, "\n")
-    self.outputarea.see(END)
-    self.root.update_idletasks()
+    self.shell_output_insert_end("\n")
     
     uploadPathFileName = str(self.filename).split('.')[0]+".ihx"
-    cmd = "avrdude -C"+os.path.dirname(self.filename)+"/avrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
-    self.execute_tool(cmd)    
-
+    cmd = "avrdude -Cavrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
+    if self.execute_tool(cmd): 
+      return
     
     self.outputarea.configure(state='disabled')
     pass
-  def terminal(self):
+  def terminal(self,*args):
     subprocess.check_output("python3 miniterm.py "+self.portDeviceName, stderr=subprocess.STDOUT, shell=True)
-  def plotter(self):
+  def plotter(self,*args):
     pass
   
   # Defining About Funtion
@@ -641,6 +550,11 @@ class TextEditor:
     self.txtarea.bind("<Control-v>",self.paste)
     # Binding Ctrl+u to undo funtion
     self.txtarea.bind("<Control-u>",self.undo)
+
+    self.txtarea.bind("<Control-b>",self.build)
+    self.txtarea.bind("<Control-p>",self.upload)
+    self.txtarea.bind("<Control-t>",self.terminal)
+    self.txtarea.bind("<Control-l>",self.plotter)
 
 # Creating TK Container
 root = Tk()
