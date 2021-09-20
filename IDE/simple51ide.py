@@ -569,24 +569,26 @@ class TextEditor:
       messagebox.showerror("Exception",e)
   def pickup_sdcc(self):
     self.sdccPath = filedialog.askopenfilename(title = "Select sdcc")
-    self.menu8051.entryconfig(1,label="sdcc: "+self.sdccPath)
-    # write the prev file name
-    JSON_FILE = open(CONFIG_FILE,'r+').read()
-    JSON_DATA = json.loads(JSON_FILE)
-    JSON_DATA["sdccPath"] = self.sdccPath
-    JSON_DUMP = json.dumps(JSON_DATA)
-    JSON_FILE = open(CONFIG_FILE,'w')
-    JSON_FILE.write(JSON_DUMP)
+    if self.sdccPath:
+      self.menu8051.entryconfig(1,label="sdcc: "+self.sdccPath)
+      # write the prev file name
+      JSON_FILE = open(CONFIG_FILE,'r+').read()
+      JSON_DATA = json.loads(JSON_FILE)
+      JSON_DATA["sdccPath"] = self.sdccPath
+      JSON_DUMP = json.dumps(JSON_DATA)
+      JSON_FILE = open(CONFIG_FILE,'w')
+      JSON_FILE.write(JSON_DUMP)
   def pickup_avrdude(self):
     self.avrdudePath = filedialog.askopenfilename(title = "Select avrdude")
-    self.menu8051.entryconfig(2,label="avrdude: "+self.avrdudePath)
-    # write the prev file name
-    JSON_FILE = open(CONFIG_FILE,'r+').read()
-    JSON_DATA = json.loads(JSON_FILE)
-    JSON_DATA["avrdudePath"] = self.avrdudePath
-    JSON_DUMP = json.dumps(JSON_DATA)
-    JSON_FILE = open(CONFIG_FILE,'w')
-    JSON_FILE.write(JSON_DUMP)
+    if self.avrdudePath:
+      self.menu8051.entryconfig(2,label="avrdude: "+self.avrdudePath)
+      # write the prev file name
+      JSON_FILE = open(CONFIG_FILE,'r+').read()
+      JSON_DATA = json.loads(JSON_FILE)
+      JSON_DATA["avrdudePath"] = self.avrdudePath
+      JSON_DUMP = json.dumps(JSON_DATA)
+      JSON_FILE = open(CONFIG_FILE,'w')
+      JSON_FILE.write(JSON_DUMP)
   def comport(self):
     pass
   def shell_output_insert_end(self, output):
@@ -623,12 +625,12 @@ class TextEditor:
     while p.poll() is None:
       # Loop long as the selct mechanism indicates there
       # is data to be read from the buffer
-      while len(select.select([pipe_r], [], [], 0)[0]) == 1:
+      #while len(select.select([pipe_r], [], [], 0)[0]) == 1:
         # Read up to a 1 KB chunk of data
-        buf = os.read(pipe_r, 1024)
+      buf = os.read(pipe_r, 1024)
         # Stream data to our stdout's fd of 0
         #os.write(0, buf)
-        self.shell_output_insert_end(buf)
+      self.shell_output_insert_end(buf)
 
     #flags = fcntl.fcntl(p.stdout, fcntl.F_GETFL) # get current p.stdout flags
     #fcntl.fcntl(p.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
