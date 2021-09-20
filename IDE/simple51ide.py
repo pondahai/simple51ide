@@ -8,6 +8,9 @@
 ## subprocess realtime output: https://www.endpoint.com/blog/2015/01/getting-realtime-output-using-python/
 ## serialTerminal: https://github.com/pyserial/pyserial/blob/master/examples/wxTerminal.py
 ## avrdude.conf: https://www.instructables.com/Program-8051-With-Arduino/
+## remove the newline at the end of the Text widget: https://stackoverflow.com/questions/48220788/how-can-i-remove-newline-character-n-at-the-end-of-text-widget
+## program settings file: https://stackoverflow.com/questions/64179035/creating-and-using-a-preferences-file-in-python
+## non-blocking reading from stdout: https://gist.github.com/mckaydavis/e96c1637d02bcf8a78e7
 
 # Importing Required libraries & Modules
 from tkinter import *
@@ -18,33 +21,39 @@ from tkinter import filedialog
 import serial
 import serial.tools.list_ports
 import subprocess
-import time
+#import threading
+#import queue
+#import time
 import os
+import select
 import TKlighter
-import fcntl
+#import fcntl
+import json
+
+CONFIG_FILE='simple51ide_config.json'
 
 class TextLineNumbers(Canvas):
-    def __init__(self, *args, **kwargs):
-        Canvas.__init__(self, *args, **kwargs)
-        self.textwidget = None
+  def __init__(self, *args, **kwargs):
+    Canvas.__init__(self, *args, **kwargs)
+    self.textwidget = None
 
-    def attach(self, text_widget):
-        self.textwidget = text_widget
+  def attach(self, text_widget):
+    self.textwidget = text_widget
         
-    def redraw(self, *args):
-        '''redraw line numbers'''
-        self.delete("all")
+  def redraw(self, *args):
+    '''redraw line numbers'''
+    self.delete("all")
 
-        i = self.textwidget.index("@0,0")
-        while True :
-            dline= self.textwidget.dlineinfo(i)
-            if dline is None: break
-            y = dline[1]
-            linenum = str(i).split(".")[0]
-            self.create_text(2,y,anchor="nw", text=linenum)
-            i = self.textwidget.index("%s+1line" % i)
-        self.configure(width=(len(str(self.textwidget.index(END)))-2)*font.Font(family="Courier", size=15, weight="normal").measure("m"))
-
+    i = self.textwidget.index("@0,0")
+    while True :
+      dline= self.textwidget.dlineinfo(i)
+      if dline is None: break
+      y = dline[1]
+      linenum = str(i).split(".")[0]
+      self.create_text(2,y,anchor="nw", text=linenum)
+      i = self.textwidget.index("%s+1line" % i)
+    self.configure(width=(len(str(self.textwidget.index(END)))-2)*font.Font(family="Courier", size=15, weight="normal").measure("m"))
+    
 class CustomText(Text):
   def __init__(self, *args, **kwargs):
     Text.__init__(self, *args, **kwargs)
@@ -167,6 +176,8 @@ class TextEditor:
       self.port = portList[i]
       self.comPortsMenu.add_command(label=self.port,command=lambda port=self.port: self.selectPort(port))
     #
+    self.menu8051.add_command(label="sdcc",command=self.pickup_sdcc)
+    self.menu8051.add_command(label="avrdude",command=self.pickup_avrdude)    
     self.menu8051.add_command(label="Build",accelerator="Ctrl+B",command=self.build)
     self.menu8051.add_command(label="Build & Upload",accelerator="Ctrl+P",command=self.upload)
     self.menu8051.add_command(label="SerialTerminal",accelerator="Ctrl+T",command=self.terminal)
@@ -207,7 +218,7 @@ class TextEditor:
         
     # shell output area
     scrol_y = Scrollbar(frame_bottom,orient=VERTICAL)
-    self.outputarea = Text(frame_bottom,yscrollcommand=scrol_y.set,fg="green",bg='lightgray',font=("Courier",15,""),state="disabled",relief=GROOVE)
+    self.outputarea = Text(frame_bottom,yscrollcommand=scrol_y.set,fg="white",bg='black',font=("Courier",15,""),state="disabled",relief=GROOVE)
     scrol_y.pack(side=RIGHT,fill=Y)
     scrol_y.config(command=self.outputarea.yview)
     self.outputarea.pack(side=BOTTOM, fill=BOTH, expand=True)
@@ -223,13 +234,51 @@ class TextEditor:
     self.outputarea.insert(END,"Welcome.\n")
     self.outputarea.configure(state='disabled')
     
-    self.txtarea.bind_all('<KeyRelease>', self.light)
+    self.txtarea.bind_all('<<KeyRelease>>', self.light)
     
     self.portDeviceName = "comport"
     
-
+    # read program prefernce
+    self.prevFileName = None
+    try:
+        JSON_FILE = open(CONFIG_FILE,'r+').read()
+        JSON_DATA = json.loads(JSON_FILE)
+        # prev file neme
+        try:
+            self.prevFileName = JSON_DATA["prevFileName"]
+            print(self.prevFileName)
+            self.filename = self.prevFileName
+            self.openfile(self.filename)
+        except:
+            pass
+        # port device name
+        try:
+            self.portDeviceName = JSON_DATA["portDeviceName"]
+            self.menu8051.entryconfig(0,label="ComPort: "+self.portDeviceName)            
+        except:
+            pass
+        # sdcc path
+        try:
+            self.sdccPath = JSON_DATA["sdccPath"]
+            self.menu8051.entryconfig(1,label="sdcc: "+self.sdccPath)            
+        except:
+            pass
+        # avrdude path
+        try:
+            self.avrdudePath = JSON_DATA["avrdudePath"]
+            self.menu8051.entryconfig(2,label="avrdude: "+self.avrdudePath)            
+        except:
+            pass
+    except FileNotFoundError:
+        JSON_FILE = open(CONFIG_FILE,'w')
+        JSON_DUMP = json.dumps({"prevFileName":"","portDeviceName":""})
+        JSON_FILE.write(JSON_DUMP)
+    #
+    #
+    self.txtarea.focus_set()
   def _on_change(self, event):
     self.linenumbers.redraw()
+    self.txtarea.focus_set() # FIXME not working
     
   def getPorts(self):
     return list(serial.tools.list_ports.comports())
@@ -237,11 +286,19 @@ class TextEditor:
   def selectPort(self, port):
     self.menu8051.entryconfig(0,label="ComPort: "+str(port))
     self.portDeviceName = port.name
+    # write the prev file name
+    JSON_FILE = open(CONFIG_FILE,'r+').read()
+    JSON_DATA = json.loads(JSON_FILE)
+    JSON_DATA["portDeviceName"] = self.portDeviceName
+    JSON_DUMP = json.dumps(JSON_DATA)
+    JSON_FILE = open(CONFIG_FILE,'w')
+    JSON_FILE.write(JSON_DUMP)
+    #
     print(port.name)
         #do port selection
 
   def light(self, event):
-    #print(event)
+    print(event)
     if event == None:
       return
     if event.keysym:
@@ -328,34 +385,64 @@ class TextEditor:
     self.settitle()
     # updating status
     self.status.set("New File Created")
-
+    self.txtarea.focus_set()
+    #
+    self.txtarea.event_generate('<<KeyRelease>>')
   # Defining Open File Funtion
   def openfile(self,*args):
     # Exception handling
     try:
       # Asking for file to open
-      self.filename = filedialog.askopenfilename(title = "Select file",filetypes = (("All Files","*.*"),("Text Files","*.txt"),("C Files","*.c")))
+      if len(args) > 0:
+        self.filename = args[0]
+      else:    
+        self.filename = filedialog.askopenfilename(title = "Select file",filetypes = (("All Files","*.*"),("Text Files","*.txt"),("C Files","*.c")))
+      
       # checking if filename not none
       if self.filename:
-        # opening file in readmode
-        infile = open(self.filename,"r")
         # Clearing text area
         self.txtarea.delete("1.0",END)
+
+
+        # opening file in readmode
+        infile = open(self.filename,"r")
+        
+        
+        #self.txtarea.delete('end-1l',END)
+        s=self.txtarea.get("1.0",END)
+        str=":".join("{:02x}".format(ord(c)) for c in s)
+        print(str)
         # Inserting data Line by line into text area
-        for line in infile:
-          self.txtarea.insert(END,line)
+        #for line in infile:
+        #  self.txtarea.insert(END,line)
+        
+        data = infile.read()
+        self.txtarea.insert(END,data)
+        
+        
         # Closing the file  
         infile.close()
         # Calling Set title
         self.settitle()
         # Updating Status
         self.status.set("Opened Successfully")
-        #self.light(Event(""))
         self.outputarea.after(1,self.root.update_idletasks())
-        self.root.event_generate('<KeyRelease>')
+        #self.txtarea.after(1,
+        self.txtarea.event_generate('<<KeyRelease>>')
+        #self.light()
+        # write the prev file name
+        JSON_FILE = open(CONFIG_FILE,'r+').read()
+        JSON_DATA = json.loads(JSON_FILE)
+        JSON_DATA["prevFileName"] = self.filename
+        JSON_DUMP = json.dumps(JSON_DATA)
+        JSON_FILE = open(CONFIG_FILE,'w')
+        JSON_FILE.write(JSON_DUMP)
+        # FIXME cut the tail newline
+        s=self.txtarea.get("1.0",END)
+        str=":".join("{:02x}".format(ord(c)) for c in s)
+        print(str)
     except Exception as e:
-      messagebox.showerror("Exception",e)
-
+      messagebox.showerror("Exception",e)    
   # Defining Save File Funtion
   def savefile(self,*args):
     # Exception handling
@@ -374,6 +461,7 @@ class TextEditor:
         self.settitle()
         # Updating Status
         self.status.set("Saved Successfully")
+        self.txtarea.focus_set()
       else:
         self.saveasfile()
     except Exception as e:
@@ -384,7 +472,7 @@ class TextEditor:
     # Exception handling
     try:
       # Asking for file name and type to save
-      untitledfile = filedialog.asksaveasfilename(title = "Save file As",defaultextension=".txt",initialfile = "Untitled.txt",filetypes = (("All Files","*.*"),("Text Files","*.txt"),("Python Files","*.py")))
+      untitledfile = filedialog.asksaveasfilename(title = "Save file As",defaultextension=".c",initialfile = "Untitled.c",filetypes = (("All Files","*.*"),("Source Files","*.c"),("Header Files","*.h")))
       # Reading the data from text area
       data = self.txtarea.get("1.0",END)
       # opening File in write mode
@@ -399,6 +487,14 @@ class TextEditor:
       self.settitle()
       # Updating Status
       self.status.set("Saved Successfully")
+      self.txtarea.focus_set()
+      # write the prev file name
+      JSON_FILE = open(CONFIG_FILE,'r+').read()
+      JSON_DATA = json.loads(JSON_FILE)
+      JSON_DATA["prevFileName"] = self.filename
+      JSON_DUMP = json.dumps(JSON_DATA)
+      JSON_FILE = open(CONFIG_FILE,'w')
+      JSON_FILE.write(JSON_DUMP)
     except Exception as e:
       messagebox.showerror("Exception",e)
 
@@ -416,7 +512,7 @@ class TextEditor:
 
   # Defining Copy Funtion
   def copy(self,*args):
-          self.txtarea.event_generate("<<Copy>>")
+    self.txtarea.event_generate("<<Copy>>")
 
   # Defining Paste Funtion
   def paste(self,*args):
@@ -434,7 +530,7 @@ class TextEditor:
         infile = open(self.filename,"r")
         # Inserting data Line by line into text area
         for line in infile:
-          self.txtarea.insert(END,line)
+          self.txtarea.insert('1.0',line)
         # Closing File
         infile.close()
         # Calling Set title
@@ -452,28 +548,80 @@ class TextEditor:
         self.status.set("Undone Successfully")
     except Exception as e:
       messagebox.showerror("Exception",e)
-
+  def pickup_sdcc(self):
+    self.sdccPath = filedialog.askopenfilename(title = "Select sdcc")
+    self.menu8051.entryconfig(1,label="sdcc: "+self.sdccPath)
+    # write the prev file name
+    JSON_FILE = open(CONFIG_FILE,'r+').read()
+    JSON_DATA = json.loads(JSON_FILE)
+    JSON_DATA["sdccPath"] = self.sdccPath
+    JSON_DUMP = json.dumps(JSON_DATA)
+    JSON_FILE = open(CONFIG_FILE,'w')
+    JSON_FILE.write(JSON_DUMP)
+  def pickup_avrdude(self):
+    self.avrdudePath = filedialog.askopenfilename(title = "Select avrdude")
+    self.menu8051.entryconfig(2,label="avrdude: "+self.avrdudePath)
+    # write the prev file name
+    JSON_FILE = open(CONFIG_FILE,'r+').read()
+    JSON_DATA = json.loads(JSON_FILE)
+    JSON_DATA["avrdudePath"] = self.avrdudePath
+    JSON_DUMP = json.dumps(JSON_DATA)
+    JSON_FILE = open(CONFIG_FILE,'w')
+    JSON_FILE.write(JSON_DUMP)
   def comport(self):
     pass
   def shell_output_insert_end(self, output):
     self.outputarea.insert(END, output)
     self.outputarea.see(END)
     self.outputarea.after(1,self.root.update_idletasks())
+  
+  def enqueue_output(self, out, queue):
+    for line in iter(out.readline, b''):
+      queue.put(line)
+    out.close()
     
   def execute_tool(self, cmd):
     self.shell_output_insert_end(cmd+"\n")
-    p=subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-    flags = fcntl.fcntl(p.stdout, fcntl.F_GETFL) # get current p.stdout flags
-    fcntl.fcntl(p.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-    try:
-      while True:
-        output = p.stdout.readline()
-        if output == '' and p.poll() is not None:
-          break
-        if output:
-          self.shell_output_insert_end(output)
-    except EOFError:
-        pass
+    
+#     ON_POSIX = 'posix' in sys.builtin_module_names    
+#     p=subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1, close_fds=ON_POSIX)
+#     q=queue.Queue()
+#     t=threading.Thread(target=self.enqueue_output, args=(p.stdout, q))
+#     t.daemon = True
+#     t.start()
+#         
+#     line=''
+#     while True:
+#       try:
+#         line = q.get_nowait()
+#       except queue.Empty:
+#         if line == '' and p.poll() is not None:
+#           break
+#       else:
+#         self.shell_output_insert_end(line)
+    (pipe_r, pipe_w) = os.pipe()
+    p=subprocess.Popen(cmd, shell=True, stdout=pipe_w, stderr=pipe_w, bufsize=1, universal_newlines=True)
+    while p.poll() is None:
+      # Loop long as the selct mechanism indicates there
+      # is data to be read from the buffer
+      while len(select.select([pipe_r], [], [], 0)[0]) == 1:
+        # Read up to a 1 KB chunk of data
+        buf = os.read(pipe_r, 1024)
+        # Stream data to our stdout's fd of 0
+        #os.write(0, buf)
+        self.shell_output_insert_end(buf)
+
+    #flags = fcntl.fcntl(p.stdout, fcntl.F_GETFL) # get current p.stdout flags
+    #fcntl.fcntl(p.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+#     try:
+#       while True:
+#         output = p.stdout.readline()
+#         if output == '' and p.poll() is not None:
+#           break
+#         if output:
+#           self.shell_output_insert_end(output)
+#     except EOFError:
+#         pass
     
     if p.returncode != 0:
       self.shell_output_insert_end("\nSomething wrong...\n")
@@ -487,7 +635,7 @@ class TextEditor:
     self.shell_output_insert_end(str(self.filename)+" saved.\n\n")
     self.savefile()
     ## echo \"\nsdcc $file\n\" && sdcc --verbose \"$file\"
-    cmd = "sdcc --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    cmd = self.sdccPath + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
     if self.execute_tool(cmd):
       return
     
@@ -498,7 +646,7 @@ class TextEditor:
     self.shell_output_insert_end(self.filename+" saved.\n\n")
     self.savefile()
     
-    cmd = "sdcc --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    cmd = self.sdccPath + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
     if self.execute_tool(cmd):
       return
     self.shell_output_insert_end("\nOK\n")
@@ -526,7 +674,7 @@ class TextEditor:
     self.shell_output_insert_end("\n")
     
     uploadPathFileName = str(self.filename).split('.')[0]+".ihx"
-    cmd = "avrdude -Cavrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
+    cmd = self.avrdudePath + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
     if self.execute_tool(cmd): 
       return
     
@@ -562,15 +710,25 @@ class TextEditor:
     # Binding Ctrl+u to undo funtion
     self.txtarea.bind("<Control-u>",self.undo)
 
-    self.txtarea.bind("<Command-b>",self.build)
     self.txtarea.bind("<Control-b>",self.build)
-    self.txtarea.bind("<Command-p>",self.upload)
     self.txtarea.bind("<Control-p>",self.upload)
-    self.txtarea.bind("<Command-t>",self.terminal)
     self.txtarea.bind("<Control-t>",self.terminal)
-    self.txtarea.bind("<Command-l>",self.plotter)
     self.txtarea.bind("<Control-l>",self.plotter)
 
+
+    self.txtarea.bind("<Command-n>",self.newfile)
+    self.txtarea.bind("<Command-o>",self.openfile)
+    self.txtarea.bind("<Command-s>",self.savefile)
+    self.txtarea.bind("<Command-a>",self.saveasfile)
+    self.txtarea.bind("<Command-e>",self.exit)
+    self.txtarea.bind("<Command-x>",self.cut)
+    self.txtarea.bind("<Command-c>",self.copy)
+    self.txtarea.bind("<Command-v>",self.paste)
+    self.txtarea.bind("<Command-u>",self.undo)
+    self.txtarea.bind("<Command-b>",self.build)
+    self.txtarea.bind("<Command-p>",self.upload)
+    self.txtarea.bind("<Command-t>",self.terminal)
+    self.txtarea.bind("<Command-l>",self.plotter)
 # Creating TK Container
 root = Tk()
 # Passing Root to TextEditor Class
