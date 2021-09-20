@@ -140,7 +140,7 @@ class TextEditor:
     # Adding Save File Command
     self.filemenu.add_command(label="Save",accelerator="Ctrl+S",command=self.savefile)
     # Adding Save As file Command
-    self.filemenu.add_command(label="Save As",accelerator="Ctrl+A",command=self.saveasfile)
+    self.filemenu.add_command(label="Save As",command=self.saveasfile)
     # Adding Seprator
     self.filemenu.add_separator()
     # Adding Exit window Command
@@ -234,6 +234,7 @@ class TextEditor:
     self.outputarea.insert(END,"Welcome.\n")
     self.outputarea.configure(state='disabled')
     
+    self.txtarea.bind_all('<KeyRelease>', self.light)
     self.txtarea.bind_all('<<KeyRelease>>', self.light)
     
     self.portDeviceName = "comport"
@@ -298,7 +299,7 @@ class TextEditor:
         #do port selection
 
   def light(self, event):
-    print(event)
+    #print(event)
     if event == None:
       return
     if event.keysym:
@@ -359,10 +360,28 @@ class TextEditor:
     TKlighter.custom_h(self.txtarea,'asm','red')
     TKlighter.custom_h(self.txtarea,'__asm','red')
     TKlighter.custom_h(self.txtarea,'__endasm','red')
-    
-    TKlighter.custom_regex_h(self.txtarea,r'"',"red")
-    TKlighter.custom_regex_h(self.txtarea,r'"(\\"|[^"]*)"',"lightgreen")
-    TKlighter.custom_regex_h(self.txtarea,r"/\*.*?\*/","gray")
+    TKlighter.custom_h(self.txtarea,'__data','red')
+    TKlighter.custom_h(self.txtarea,'__near','red')
+    TKlighter.custom_h(self.txtarea,'__xdata','red')
+    TKlighter.custom_h(self.txtarea,'__far','red')
+    TKlighter.custom_h(self.txtarea,'__idata','red')
+    TKlighter.custom_h(self.txtarea,'__pdata','red')
+    TKlighter.custom_h(self.txtarea,'__code','red')
+    TKlighter.custom_h(self.txtarea,'__bit','red')
+    TKlighter.custom_h(self.txtarea,'__sfr','red')
+    TKlighter.custom_h(self.txtarea,'__sfr16','red')
+    TKlighter.custom_h(self.txtarea,'__sfr32','red')
+    TKlighter.custom_h(self.txtarea,'__sbit','red')
+    TKlighter.custom_h(self.txtarea,'__reentrant','red')
+    TKlighter.custom_h(self.txtarea,'__interrupt','red')
+    #TKlighter.custom_regex_h(self.txtarea,r'"',"red")
+    #
+    #TKlighter.custom_regex_h(self.txtarea,r'"(\\"|[^"]*)"','lightgreen')
+    TKlighter.custom_regex_h(self.txtarea,r"['\"].*?['\"]","darkgreen")
+    #
+    #TKlighter.custom_regex_h(self.txtarea,r"/\*.*?\*/","gray")
+    TKlighter.custom_regex_h(self.txtarea,r"(//[^\n]*$|/(?!\\)\*[\s\S]*?\*(?!\\)/)","gray")
+    #
     TKlighter.custom_regex_h(self.txtarea,r"//.*","gray")
     
   # Defining settitle function
@@ -698,7 +717,7 @@ class TextEditor:
     # Binding Ctrl+s to savefile funtion
     self.txtarea.bind("<Control-s>",self.savefile)
     # Binding Ctrl+a to saveasfile funtion
-    self.txtarea.bind("<Control-a>",self.saveasfile)
+    #self.txtarea.bind("<Control-a>",self.saveasfile)
     # Binding Ctrl+e to exit funtion
     self.txtarea.bind("<Control-e>",self.exit)
     # Binding Ctrl+x to cut funtion
@@ -719,12 +738,12 @@ class TextEditor:
     self.txtarea.bind("<Command-n>",self.newfile)
     self.txtarea.bind("<Command-o>",self.openfile)
     self.txtarea.bind("<Command-s>",self.savefile)
-    self.txtarea.bind("<Command-a>",self.saveasfile)
+    #self.txtarea.bind("<Command-a>",self.saveasfile)
     self.txtarea.bind("<Command-e>",self.exit)
-    self.txtarea.bind("<Command-x>",self.cut)
-    self.txtarea.bind("<Command-c>",self.copy)
-    self.txtarea.bind("<Command-v>",self.paste)
-    self.txtarea.bind("<Command-u>",self.undo)
+    #self.txtarea.bind("<Command-x>",self.cut)
+    #self.txtarea.bind("<Command-c>",self.copy)
+    #self.txtarea.bind("<Command-v>",self.paste)
+    #self.txtarea.bind("<Command-u>",self.undo)
     self.txtarea.bind("<Command-b>",self.build)
     self.txtarea.bind("<Command-p>",self.upload)
     self.txtarea.bind("<Command-t>",self.terminal)
