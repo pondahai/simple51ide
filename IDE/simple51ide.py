@@ -175,7 +175,7 @@ class TextEditor:
     #    #pass a parameter with lambda
     #    Tool_portSub.add_command(label=str(portList[i]),command=lambda: selectPort(str(portList[i])))
       self.port = portList[i]
-      self.comPortsMenu.add_command(label=self.port,command=lambda port=self.port: self.selectPort(port))
+      self.comPortsMenu.add_command(label=self.port[0],command=lambda port=self.port[0]: self.selectPort(port))
     #
     self.menu8051.add_command(label="sdcc",command=self.pickup_sdcc)
     self.menu8051.add_command(label="avrdude",command=self.pickup_avrdude)    
@@ -244,7 +244,14 @@ class TextEditor:
     self.prevFileName = None
     try:
         JSON_FILE = open(CONFIG_FILE,'r+').read()
-        JSON_DATA = json.loads(JSON_FILE)
+        if JSON_FILE == "":
+          JSON_DATA = ""
+          JSON_FILE = open(CONFIG_FILE,'w')
+          JSON_DUMP = json.dumps({"prevFileName":"","portDeviceName":""});
+          JSON_FILE.write(JSON_DUMP)
+          JSON_FILE = open(CONFIG_FILE,'r+').read()
+        else:
+          JSON_DATA = json.loads(JSON_FILE)
         # prev file neme
         try:
             self.prevFileName = JSON_DATA["prevFileName"]
@@ -287,7 +294,7 @@ class TextEditor:
 
   def selectPort(self, port):
     self.menu8051.entryconfig(0,label="ComPort: "+str(port))
-    self.portDeviceName = port.name
+    self.portDeviceName = port
     # write the prev file name
     JSON_FILE = open(CONFIG_FILE,'r+').read()
     JSON_DATA = json.loads(JSON_FILE)
@@ -296,7 +303,7 @@ class TextEditor:
     JSON_FILE = open(CONFIG_FILE,'w')
     JSON_FILE.write(JSON_DUMP)
     #
-    print(port.name)
+    print(port)
         #do port selection
 
   def light(self, event):
@@ -680,7 +687,7 @@ class TextEditor:
     ## open and close the com port
     self.shell_output_insert_end("\nOpening the com port...\n")
     try:
-      with serial.Serial("/dev/"+str(self.portDeviceName), 1200, timeout=1) as ser:
+      with serial.Serial(str(self.portDeviceName), 1200, timeout=1) as ser:
         ser.close()
     except serial.SerialException as e:
       self.shell_output_insert_end(e)
@@ -696,7 +703,7 @@ class TextEditor:
     self.shell_output_insert_end("\n")
     
     uploadPathFileName = str(self.filename).split('.')[0]+".ihx"
-    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
+    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
     if self.execute_tool(cmd): 
       return
     
