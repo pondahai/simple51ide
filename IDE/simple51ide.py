@@ -696,7 +696,7 @@ class TextEditor:
     self.shell_output_insert_end("\n")
     
     uploadPathFileName = str(self.filename).split('.')[0]+".ihx"
-    cmd = self.avrdudePath + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
+    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P/dev/"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
     if self.execute_tool(cmd): 
       return
     
