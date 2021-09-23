@@ -29,6 +29,7 @@ import select
 import TKlighter
 #import fcntl
 import json
+import platform
 
 CONFIG_FILE='simple51ide_config.json'
 
@@ -656,7 +657,7 @@ class TextEditor:
     self.shell_output_insert_end(str(self.filename)+" saved.\n\n")
     self.savefile()
     ## echo \"\nsdcc $file\n\" && sdcc --verbose \"$file\"
-    cmd = self.sdccPath + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
     if self.execute_tool(cmd):
       return
     
@@ -667,7 +668,7 @@ class TextEditor:
     self.shell_output_insert_end(self.filename+" saved.\n\n")
     self.savefile()
     
-    cmd = self.sdccPath + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
     if self.execute_tool(cmd):
       return
     self.shell_output_insert_end("\nOK\n")
@@ -736,20 +737,20 @@ class TextEditor:
     self.txtarea.bind("<Control-t>",self.terminal)
     self.txtarea.bind("<Control-l>",self.plotter)
 
-
-    self.txtarea.bind("<Command-n>",self.newfile)
-    self.txtarea.bind("<Command-o>",self.openfile)
-    self.txtarea.bind("<Command-s>",self.savefile)
-    #self.txtarea.bind("<Command-a>",self.saveasfile)
-    self.txtarea.bind("<Command-e>",self.exit)
-    #self.txtarea.bind("<Command-x>",self.cut)
-    #self.txtarea.bind("<Command-c>",self.copy)
-    #self.txtarea.bind("<Command-v>",self.paste)
-    #self.txtarea.bind("<Command-u>",self.undo)
-    self.txtarea.bind("<Command-b>",self.build)
-    self.txtarea.bind("<Command-p>",self.upload)
-    self.txtarea.bind("<Command-t>",self.terminal)
-    self.txtarea.bind("<Command-l>",self.plotter)
+    if platform.system() == "Darwin":
+      self.txtarea.bind("<Command-n>",self.newfile)
+      self.txtarea.bind("<Command-o>",self.openfile)
+      self.txtarea.bind("<Command-s>",self.savefile)
+      #self.txtarea.bind("<Command-a>",self.saveasfile)
+      self.txtarea.bind("<Command-e>",self.exit)
+      #self.txtarea.bind("<Command-x>",self.cut)
+      #self.txtarea.bind("<Command-c>",self.copy)
+      #self.txtarea.bind("<Command-v>",self.paste)
+      #self.txtarea.bind("<Command-u>",self.undo)
+      self.txtarea.bind("<Command-b>",self.build)
+      self.txtarea.bind("<Command-p>",self.upload)
+      self.txtarea.bind("<Command-t>",self.terminal)
+      self.txtarea.bind("<Command-l>",self.plotter)
 # Creating TK Container
 root = Tk()
 # Passing Root to TextEditor Class
