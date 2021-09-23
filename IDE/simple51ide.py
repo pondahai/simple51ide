@@ -23,7 +23,7 @@ import serial.tools.list_ports
 import subprocess
 #import threading
 #import queue
-#import time
+import time
 import os
 import select
 import TKlighter
@@ -175,7 +175,7 @@ class TextEditor:
     #    #pass a parameter with lambda
     #    Tool_portSub.add_command(label=str(portList[i]),command=lambda: selectPort(str(portList[i])))
       self.port = portList[i]
-      self.comPortsMenu.add_command(label=self.port[0],command=lambda port=self.port[0]: self.selectPort(port))
+      self.comPortsMenu.add_command(label=self.port,command=lambda port=self.port: self.selectPort(port))
     #
     self.menu8051.add_command(label="sdcc",command=self.pickup_sdcc)
     self.menu8051.add_command(label="avrdude",command=self.pickup_avrdude)    
@@ -294,7 +294,7 @@ class TextEditor:
 
   def selectPort(self, port):
     self.menu8051.entryconfig(0,label="ComPort: "+str(port))
-    self.portDeviceName = port
+    self.portDeviceName = port[0]
     # write the prev file name
     JSON_FILE = open(CONFIG_FILE,'r+').read()
     JSON_DATA = json.loads(JSON_FILE)
@@ -303,7 +303,7 @@ class TextEditor:
     JSON_FILE = open(CONFIG_FILE,'w')
     JSON_FILE.write(JSON_DUMP)
     #
-    print(port)
+    print(self.portDeviceName)
         #do port selection
 
   def light(self, event):
@@ -633,9 +633,10 @@ class TextEditor:
     while p.poll() is None:
       # Loop long as the selct mechanism indicates there
       # is data to be read from the buffer
+      time.sleep(0.1)
       #while len(select.select([pipe_r], [], [], 0)[0]) == 1:
         # Read up to a 1 KB chunk of data
-      buf = os.read(pipe_r, 1024)
+      buf = os.read(pipe_r, 256)
         # Stream data to our stdout's fd of 0
         #os.write(0, buf)
       self.shell_output_insert_end(buf)
@@ -669,6 +670,12 @@ class TextEditor:
       return
     
     self.shell_output_insert_end("\nOK\n")
+    #
+    cmd = "packihx " + os.path.splitext(self.filename)[0] + ".ihx" + " > " + os.path.splitext(self.filename)[0] + ".hex"
+    if self.execute_tool(cmd):
+      return
+    self.shell_output_insert_end("\nOK\n")
+    
   def upload(self,*args):
     self.outputarea.configure(state='normal')
     self.outputarea.delete("1.0",END)
@@ -676,6 +683,11 @@ class TextEditor:
     self.savefile()
     
     cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    if self.execute_tool(cmd):
+      return
+    self.shell_output_insert_end("\nOK\n")
+    #
+    cmd = "packihx " + os.path.splitext(self.filename)[0] + ".ihx" + " > " + os.path.splitext(self.filename)[0] + ".hex"
     if self.execute_tool(cmd):
       return
     self.shell_output_insert_end("\nOK\n")
@@ -701,9 +713,9 @@ class TextEditor:
       self.outputarea.see(END)
       self.outputarea.after(1000,self.root.update_idletasks())
     self.shell_output_insert_end("\n")
-    
-    uploadPathFileName = str(self.filename).split('.')[0]+".ihx"
-    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P"+self.portDeviceName+" -b19200 -Uflash:w:"+uploadPathFileName
+
+    uploadPathFileName = str(self.filename).split('.')[0]+".hex"
+    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P"+self.portDeviceName+" -b19200 -Uflash:w:\""+uploadPathFileName+"\":i"
     if self.execute_tool(cmd): 
       return
     
