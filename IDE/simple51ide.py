@@ -105,7 +105,7 @@ class TextEditor:
     # Title of the window
     self.root.title("Simple 51 IDE")
     # Window Geometry
-    self.root.geometry("1024x640+200+150")
+    self.root.geometry("1024x640+200+50")
     # Initializing filename
     self.filename = None
     # Declaring Title variable
@@ -113,17 +113,20 @@ class TextEditor:
     # Declaring Status variable
     self.status = StringVar()
 
+    
     # Creating Titlebar
-    self.titlebar = Label(self.root,textvariable=self.title,font=("Courier",15,"bold"),bd=2,relief=GROOVE)
+    self.titlebar = Label(self.root,textvariable=self.title,font=("Courier",15,"bold"),bd=2,relief=GROOVE, anchor="w")
     # Packing Titlebar to root window
     self.titlebar.pack(side=TOP,fill=BOTH)
+    #self.titlebar.grid(column=1, row=1,columnspan=1)
     # Calling Settitle Function
     self.settitle()
 
     # Creating Statusbar
-    self.statusbar = Label(self.root,textvariable=self.status,font=("Courier",15,"bold"),bd=2,relief=GROOVE)
+    self.statusbar = Label(self.root,textvariable=self.status,font=("Courier",15,"bold"),bd=2,relief=GROOVE, anchor="w")
     # Packing status bar to root window
     self.statusbar.pack(side=BOTTOM,fill=BOTH)
+    #self.statusbar.grid(column=1, row=3,columnspan=1)
     # Initializing Status
     self.status.set("")
 
@@ -193,9 +196,19 @@ class TextEditor:
     self.menubar.add_cascade(label="Help", menu=self.helpmenu)
 
     
-    framesWindow = PanedWindow(bg='lightgray',orient="vertical",sashwidth=20,relief=GROOVE)
+    framesWindow = PanedWindow(bg='lightgray',orient="vertical",sashwidth=20)#,relief=GROOVE)
+    frame_menubutton = Frame(framesWindow, height=20);
     frame_top = Frame(framesWindow);
     frame_bottom = Frame(framesWindow);
+
+    # button
+    ButtonBuild = Button(frame_menubutton, text ="Build", command = self.build)
+    ButtonUpload = Button(frame_menubutton, text ="Upload", command = self.upload)
+    #ButtonBuild.pack(side=TOP,fill=X)
+    #ButtonUpload.pack(side=TOP,fill=X)
+    ButtonBuild.grid(column=0, row=0)
+    ButtonUpload.grid(column=1, row=0)
+    framesWindow.add(frame_menubutton)
     
     # coding area
     self.txtarea = CustomText(frame_top)
@@ -225,15 +238,16 @@ class TextEditor:
     self.outputarea.pack(side=BOTTOM, fill=BOTH, expand=True)
     frame_bottom.pack()
     
-    framesWindow.add(frame_top)
+    framesWindow.add(frame_top,height=320)
     framesWindow.add(frame_bottom)
 
     framesWindow.pack(expand=True, fill=BOTH)
+    #framesWindow.grid(column=1, row=2,columnspan=1)
     # Calling shortcuts funtion
     self.shortcuts()
     self.outputarea.configure(state='normal')
     self.outputarea.insert(END,"Welcome.\n")
-    self.outputarea.configure(state='disabled')
+    #self.outputarea.configure(state='disabled')
     
     self.txtarea.bind_all('<KeyRelease>', self.light)
     self.txtarea.bind_all('<<KeyRelease>>', self.light)
@@ -576,8 +590,9 @@ class TextEditor:
     except Exception as e:
       messagebox.showerror("Exception",e)
   def pickup_sdcc(self):
-    self.sdccPath = filedialog.askopenfilename(title = "Select sdcc")
-    if self.sdccPath:
+    pathname = filedialog.askopenfilename(title = "Select sdcc")     
+    if pathname and pathname is not "":
+      self.sdccPath = pathname
       self.menu8051.entryconfig(1,label="sdcc: "+self.sdccPath)
       # write the prev file name
       JSON_FILE = open(CONFIG_FILE,'r+').read()
@@ -587,8 +602,9 @@ class TextEditor:
       JSON_FILE = open(CONFIG_FILE,'w')
       JSON_FILE.write(JSON_DUMP)
   def pickup_avrdude(self):
-    self.avrdudePath = filedialog.askopenfilename(title = "Select avrdude")
-    if self.avrdudePath:
+    pathname = filedialog.askopenfilename(title = "Select avrdude")
+    if pathname and pathname is not "":
+      self.avrdudePath = pathname
       self.menu8051.entryconfig(2,label="avrdude: "+self.avrdudePath)
       # write the prev file name
       JSON_FILE = open(CONFIG_FILE,'r+').read()
@@ -602,12 +618,17 @@ class TextEditor:
   def shell_output_insert_end(self, output):
     self.outputarea.insert(END, output)
     self.outputarea.see(END)
-    self.outputarea.after(1,self.root.update_idletasks())
-  
-  def enqueue_output(self, out, queue):
-    for line in iter(out.readline, b''):
-      queue.put(line)
-    out.close()
+    #self.outputarea.after(100,self.root.update_idletasks())
+    self.root.update_idletasks()
+    self.root.update()
+    if type(output) == bytes:
+      print(output.decode('utf-8'))
+    if type(output) == str:
+      print(output)
+#  def enqueue_output(self, out, queue):
+#    for line in iter(out.readline, b''):
+#      queue.put(line)
+#    out.close()
     
   def execute_tool(self, cmd):
     self.shell_output_insert_end(cmd+"\n")
@@ -630,17 +651,19 @@ class TextEditor:
 #         self.shell_output_insert_end(line)
     (pipe_r, pipe_w) = os.pipe()
     p=subprocess.Popen(cmd, shell=True, stdout=pipe_w, stderr=pipe_w, bufsize=1, universal_newlines=True)
-    while p.poll() is None:
+    #while p.poll() is None:
+    while True:
       # Loop long as the selct mechanism indicates there
       # is data to be read from the buffer
-      time.sleep(0.1)
+      time.sleep(0.5)
       #while len(select.select([pipe_r], [], [], 0)[0]) == 1:
         # Read up to a 1 KB chunk of data
-      buf = os.read(pipe_r, 256)
+      buf = os.read(pipe_r, 4096)
         # Stream data to our stdout's fd of 0
         #os.write(0, buf)
       self.shell_output_insert_end(buf)
-
+      if p.poll() is not None:
+        break
     #flags = fcntl.fcntl(p.stdout, fcntl.F_GETFL) # get current p.stdout flags
     #fcntl.fcntl(p.stdout, fcntl.F_SETFL, flags | os.O_NONBLOCK)
 #     try:
@@ -658,39 +681,34 @@ class TextEditor:
       return 1
     else:
       return 0  
-    
+  def do_compile(self):
+    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    if self.execute_tool(cmd):
+      return 1
+    self.shell_output_insert_end("\nOK\n")
+    #
+    packihxPath = "\"" + os.path.dirname(self.sdccPath) + "/packihx\" "
+    cmd = packihxPath + os.path.splitext(self.filename)[0] + ".ihx" + " > " + os.path.splitext(self.filename)[0] + ".hex"
+    if self.execute_tool(cmd):
+      return 1
+    self.shell_output_insert_end("\nOK\n")
+    return 0
   def build(self,*args):
     self.outputarea.configure(state='normal')
     self.outputarea.delete("1.0",END)
     self.shell_output_insert_end(str(self.filename)+" saved.\n\n")
     self.savefile()
     ## echo \"\nsdcc $file\n\" && sdcc --verbose \"$file\"
-    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
-    if self.execute_tool(cmd):
+    if self.do_compile():
       return
-    
-    self.shell_output_insert_end("\nOK\n")
-    #
-    cmd = "packihx " + os.path.splitext(self.filename)[0] + ".ihx" + " > " + os.path.splitext(self.filename)[0] + ".hex"
-    if self.execute_tool(cmd):
-      return
-    self.shell_output_insert_end("\nOK\n")
-    
   def upload(self,*args):
     self.outputarea.configure(state='normal')
     self.outputarea.delete("1.0",END)
     self.shell_output_insert_end(self.filename+" saved.\n\n")
     self.savefile()
     
-    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
-    if self.execute_tool(cmd):
+    if self.do_compile():
       return
-    self.shell_output_insert_end("\nOK\n")
-    #
-    cmd = "packihx " + os.path.splitext(self.filename)[0] + ".ihx" + " > " + os.path.splitext(self.filename)[0] + ".hex"
-    if self.execute_tool(cmd):
-      return
-    self.shell_output_insert_end("\nOK\n")
     
     #cmd = "stty -f /dev/"+str(self.portDeviceName)+" ispeed 1200 ospeed 1200"
     #if self.execute_tool(cmd):
@@ -708,27 +726,59 @@ class TextEditor:
     
     self.shell_output_insert_end("Reseting ISP...\n")
     # waiting for the arduinoAsISP's 8 secends.
-    for i in range(9):
-      self.outputarea.insert(END, ".")
-      self.outputarea.see(END)
-      self.outputarea.after(1000,self.root.update_idletasks())
+    for i in range(11):
+      self.shell_output_insert_end(".")
+      time.sleep(1)
+      #self.outputarea.insert(END, ".")
+      #self.outputarea.see(END)
+      #self.outputarea.after(1000,self.root.update_idletasks())
+      #self.root.update_idletasks()
     self.shell_output_insert_end("\n")
 
+    try:
+      with serial.Serial(str(self.portDeviceName), 19200, timeout=0) as ser:
+#         pass
+        ser.dtr=None
+        ser.rts=None
+        ser.flush()
+#         ser.write(' '.encode('utf-8'))
+#         ser.write(' '.encode('utf-8'))
+#         ser.write(' '.encode('utf-8'))
+#         print("1")
+#         time.sleep(1)
+#         ser.write('0'.encode('utf-8'))
+#         ser.write(' '.encode('utf-8'))
+#         print("2")
+#         time.sleep(1)
+#         ser.write('0'.encode('utf-8'))
+#         ser.write(' '.encode('utf-8'))
+#         print("3")
+#         time.sleep(1)
+#         ser.flush()
+#         ser.close()
+    except serial.SerialException as e:
+      self.shell_output_insert_end(e)
+      self.shell_output_insert_end("\nSomething wrong...\n")
+      return
+
     uploadPathFileName = str(self.filename).split('.')[0]+".hex"
-    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -v -p89s52 -cstk500v1 -P"+self.portDeviceName+" -b19200 -Uflash:w:\""+uploadPathFileName+"\":i"
+    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -F -v -p8052 -cstk500v1 -P"+self.portDeviceName+" -b19200  -Uflash:w:\""+uploadPathFileName+"\":i"
     if self.execute_tool(cmd): 
       return
     
-    self.outputarea.configure(state='disabled')
-    pass
+    #self.outputarea.configure(state='disabled')
+    
   def terminal(self,*args):
-    subprocess.check_output("python3 miniterm.py "+self.portDeviceName, stderr=subprocess.STDOUT, shell=True)
+    cmd = "python3 miniterm.py "+self.portDeviceName 
+    if self.execute_tool(cmd): 
+      return
+    #subprocess.check_output("python3 miniterm.py "+self.portDeviceName, stderr=subprocess.STDOUT, shell=True)
   def plotter(self,*args):
     pass
   
   # Defining About Funtion
   def infoabout(self):
-    messagebox.showinfo("About Simple 51 IDE","A Simple 8051 IDE\nCreated using Python.")
+    messagebox.showinfo("About Simple 51 IDE","A Simple 8051 IDE\nBuilt using Python.")
 
   # Defining shortcuts Funtion
   def shortcuts(self):
