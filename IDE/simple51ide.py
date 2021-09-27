@@ -30,6 +30,7 @@ import TKlighter
 #import fcntl
 import json
 import platform
+import intelhex
 
 CONFIG_FILE='simple51ide_config.json'
 
@@ -495,7 +496,7 @@ class TextEditor:
         # opening File in write mode
         outfile = open(self.filename,"w")
         # Writing Data into file
-        outfile.write(data)
+        outfile.write(data.strip("\n"))
         # Closing File
         outfile.close()
         # Calling Set title
@@ -519,7 +520,7 @@ class TextEditor:
       # opening File in write mode
       outfile = open(untitledfile,"w")
       # Writing Data into file
-      outfile.write(data)
+      outfile.write(data.strip("\n"))
       # Closing File
       outfile.close()
       # Updating filename as Untitled
@@ -658,7 +659,7 @@ class TextEditor:
       time.sleep(0.5)
       #while len(select.select([pipe_r], [], [], 0)[0]) == 1:
         # Read up to a 1 KB chunk of data
-      buf = os.read(pipe_r, 4096)
+      buf = os.read(pipe_r, 16384)
         # Stream data to our stdout's fd of 0
         #os.write(0, buf)
       self.shell_output_insert_end(buf)
@@ -701,6 +702,66 @@ class TextEditor:
     ## echo \"\nsdcc $file\n\" && sdcc --verbose \"$file\"
     if self.do_compile():
       return
+    
+    
+  def erase_chip(self, ser):
+    ser.write(b'\x56\xac\x80\x00\x00\x20')
+    a=ser.read(1)
+    b=ser.read(1)
+    c=ser.read(1)
+    #print(a,b,c)
+  def universal_write(self, ser, addr, data):
+    cmd=b'\x56'
+    a=b'\x40'
+    b=((addr >> 8)&0xff).to_bytes(1,byteorder="little")
+    c=(addr&0xff).to_bytes(1,byteorder="little")
+    d=data.to_bytes(1,byteorder="little")
+    e=b'\x20'
+    ser.write(cmd+a+b+c+d+e)
+    a=ser.read(1)
+    b=ser.read(1)
+    c=ser.read(1)
+    return b
+  def set_parameter(self, ser):
+# [42] . [e1] . [00] . [00] . [01] . [01] . [01] . [00] .
+# [00] . [00] . [00] . [ff] . [ff] . [00] . [00] . [00] .
+# [00] . [00] . [00]   [20] . [00]   [20]
+    ser.write(b'\x42\xe1\x00\x00\x01\x01\x01\x00\x00\x00\x00\xff\xff\x00\x00\x00\x00\x00\x00\x20\x00\x20')
+    a=ser.read(1)
+    b=ser.read(1)
+    #print(a,b)
+  def set_pmode(self, ser):
+    ser.write(b'\x50\x20')
+    a=ser.read(1)
+    b=ser.read(1)
+    #print(a,b)
+  def end_pmode(self, ser):
+    ser.write(b'\x51\x20')
+    a=ser.read(1)
+    b=ser.read(1)
+    #print(a,b)
+  def universal_read(self, ser, addr):
+    cmd=b'\x56'
+    a=b'\x20'
+    b=((addr >> 8)&0xff).to_bytes(1,byteorder="little")
+    c=(addr&0xff).to_bytes(1,byteorder="little")
+    d=b'\x00'
+    e=b'\x20'
+    #print(cmd,a,b,c,d,e)
+    ser.write(cmd+a+b+c+d+e)
+
+#     ser.write(cmd)
+#     ser.write(a)
+#     ser.write(b)
+#     ser.write(c)
+#     ser.write(d)
+#     ser.write(e)
+
+    a=ser.read(1)
+    b=ser.read(1)
+    c=ser.read(1)
+    #print("r: ",a,b,c)
+    return b
   def upload(self,*args):
     self.outputarea.configure(state='normal')
     self.outputarea.delete("1.0",END)
@@ -735,12 +796,76 @@ class TextEditor:
       #self.root.update_idletasks()
     self.shell_output_insert_end("\n")
 
+    # open hex
     try:
-      with serial.Serial(str(self.portDeviceName), 19200, timeout=0) as ser:
+      uploadPathFileName = str(self.filename).split('.')[0]+".hex"
+      ih = intelhex.IntelHex(uploadPathFileName)
+      pydict = ih.todict()
+      bs = ih.tobinstr()
+      hex_length = len(bs)
+      print(hex_length,"bytes")
+    except e:
+      self.shell_output_insert_end(e)
+      self.shell_output_insert_end("\nSomething wrong...\n")
+      return
+    
+    try:
+      with serial.Serial(str(self.portDeviceName), 19200, timeout=1) as ser:
 #         pass
-        ser.dtr=None
-        ser.rts=None
-        ser.flush()
+        # sync
+        self.shell_output_insert_end("sync with programmer.\n")
+        a=ser.read(1)
+        for i in range(2):
+          ser.write(b'\x30\x20')
+          a=ser.read(1)
+          b=ser.read(1)
+          #print(a,b)
+        #
+        self.shell_output_insert_end("set parameter for programmer.\n")
+        self.set_parameter(ser)
+        #
+        self.shell_output_insert_end("turn on pmode.\n")
+        self.set_pmode(ser)
+        #
+        self.shell_output_insert_end("chip erase.\n")
+        self.erase_chip(ser)
+        time.sleep(1)
+        #
+        self.shell_output_insert_end("turn on pmode.\n")
+        self.set_pmode(ser)
+        #
+        self.shell_output_insert_end("flash the chip.\n")
+        for i in range(hex_length):
+          #self.shell_output_insert_end((str(i)+"/"+str(hex_length)).strip("\n"))
+          if i % int(hex_length / 10) == 0:
+            self.shell_output_insert_end("#")
+          r = int.from_bytes(self.universal_read(ser,i),byteorder='little')
+          if r == 255:
+            p = self.universal_write(ser, i, bs[i])
+            #print("w: ",p)
+          else:
+            print("not empty @ ",i,"= ",r)
+            break
+        self.shell_output_insert_end("\n")
+        #
+        self.shell_output_insert_end("verify.\n")
+        for i in range(hex_length):
+          #self.shell_output_insert_end((str(i),"/",str(hex_length),"\r").strip("\n"))
+          if i % int(hex_length / 10) == 0:
+            self.shell_output_insert_end("#")
+          r = int.from_bytes(self.universal_read(ser,i),byteorder='little')
+          if r != bs[i]:
+            print("verify error @ ",i," read: ",hex(r),"!="," hex: ",hex(bs[i]))
+            break
+          #print(r,bs[i])
+        
+        #
+        self.shell_output_insert_end("\n")
+        self.shell_output_insert_end("turn off pmode.\n")
+        self.end_pmode(ser)
+#        ser.dtr=None
+#        ser.rts=None
+#        ser.flush()
 #         ser.write(' '.encode('utf-8'))
 #         ser.write(' '.encode('utf-8'))
 #         ser.write(' '.encode('utf-8'))
@@ -761,10 +886,10 @@ class TextEditor:
       self.shell_output_insert_end("\nSomething wrong...\n")
       return
 
-    uploadPathFileName = str(self.filename).split('.')[0]+".hex"
-    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -F -v -p8052 -cstk500v1 -P"+self.portDeviceName+" -b19200  -Uflash:w:\""+uploadPathFileName+"\":i"
-    if self.execute_tool(cmd): 
-      return
+#    uploadPathFileName = str(self.filename).split('.')[0]+".hex"
+#    cmd = "\""+self.avrdudePath+"\"" + " -Cavrdude.conf -F -vvvv -p89s52 -cstk500v1 -P"+self.portDeviceName+" -b19200  -Uflash:w:\""+uploadPathFileName+"\":i"
+#    if self.execute_tool(cmd): 
+#      return
     
     #self.outputarea.configure(state='disabled')
     
