@@ -41,7 +41,6 @@
 
 
 
-#define mySerial1 Serial1 // for 32u4
 
 
 
@@ -140,8 +139,28 @@
 
 #ifdef SERIAL_PORT_USBVIRTUAL
   #define SERIAL SERIAL_PORT_USBVIRTUAL
+  #define mySerial1 Serial1 // for 32u4
 #else
   #define SERIAL Serial
+  #define mySerial1 SerialDummy // for UNO
+  class serialDummyClass {
+    public:
+    void begin(int b) {
+      
+    }
+    bool available() {
+      
+    }
+    void write(char c) {
+      
+    }
+    char read() {
+      
+    }
+  };
+
+  serialDummyClass SerialDummy;
+  
 #endif
 
 
@@ -301,9 +320,10 @@ int now_state = HIGH;
 void loop(void) {
 
   if(now_state == HIGH) {
-    if(millis() - waiting_timer > 3000) {
+    if(millis() - waiting_timer > 12000) {
       now_state = LOW;
       mySerial1.begin(4800);
+      digitalWrite(LED_ERR, HIGH);
     }
   }
 
