@@ -15,7 +15,7 @@
 # Importing Required libraries & Modules
 from tkinter import *
 from tkinter import font
-#from tkinter import ttk
+from tkinter import ttk
 from tkinter import messagebox
 from tkinter import filedialog
 import serial
@@ -198,13 +198,13 @@ class TextEditor:
 
     
     framesWindow = PanedWindow(bg='lightgray',orient="vertical",sashwidth=20)#,relief=GROOVE)
-    frame_menubutton = Frame(framesWindow, height=20);
+    frame_menubutton = Frame(framesWindow, height=20, bg="lightgray");
     frame_top = Frame(framesWindow);
     frame_bottom = Frame(framesWindow);
 
     # button
-    ButtonBuild = Button(frame_menubutton, text ="Build", command = self.build)
-    ButtonUpload = Button(frame_menubutton, text ="Upload", command = self.upload)
+    ButtonBuild = ttk.Button(frame_menubutton, text ="Build", command = self.build, width=8)
+    ButtonUpload = ttk.Button(frame_menubutton, text ="Upload", command = self.upload, width=8)
     #ButtonBuild.pack(side=TOP,fill=X)
     #ButtonUpload.pack(side=TOP,fill=X)
     ButtonBuild.grid(column=0, row=0)
@@ -248,6 +248,7 @@ class TextEditor:
     self.shortcuts()
     self.outputarea.configure(state='normal')
     self.outputarea.insert(END,"Welcome.\n")
+    self.outputarea.insert(END,"for now only for at89s52.\n")
     #self.outputarea.configure(state='disabled')
     
     self.txtarea.bind_all('<KeyRelease>', self.light)
@@ -270,7 +271,7 @@ class TextEditor:
         # prev file neme
         try:
             self.prevFileName = JSON_DATA["prevFileName"]
-            print(self.prevFileName)
+            #print(self.prevFileName)
             self.filename = self.prevFileName
             self.openfile(self.filename)
         except:
@@ -453,7 +454,7 @@ class TextEditor:
         #self.txtarea.delete('end-1l',END)
         s=self.txtarea.get("1.0",END)
         str=":".join("{:02x}".format(ord(c)) for c in s)
-        print(str)
+        #print(str)
         # Inserting data Line by line into text area
         #for line in infile:
         #  self.txtarea.insert(END,line)
@@ -482,7 +483,7 @@ class TextEditor:
         # FIXME cut the tail newline
         s=self.txtarea.get("1.0",END)
         str=":".join("{:02x}".format(ord(c)) for c in s)
-        print(str)
+        #print(str)
     except Exception as e:
       messagebox.showerror("Exception",e)    
   # Defining Save File Funtion
@@ -591,8 +592,8 @@ class TextEditor:
     except Exception as e:
       messagebox.showerror("Exception",e)
   def pickup_sdcc(self):
-    pathname = filedialog.askopenfilename(title = "Select sdcc")     
-    if pathname and pathname is not "":
+    pathname = filedialog.askopenfilename(title = "Select sdcc")
+    if pathname and pathname != "":
       self.sdccPath = pathname
       self.menu8051.entryconfig(1,label="sdcc: "+self.sdccPath)
       # write the prev file name
@@ -604,7 +605,7 @@ class TextEditor:
       JSON_FILE.write(JSON_DUMP)
   def pickup_avrdude(self):
     pathname = filedialog.askopenfilename(title = "Select avrdude")
-    if pathname and pathname is not "":
+    if pathname and pathname != "":
       self.avrdudePath = pathname
       self.menu8051.entryconfig(2,label="avrdude: "+self.avrdudePath)
       # write the prev file name
@@ -798,12 +799,13 @@ class TextEditor:
 
     # open hex
     try:
+      self.shell_output_insert_end("open hex file.\n")
       uploadPathFileName = str(self.filename).split('.')[0]+".hex"
       ih = intelhex.IntelHex(uploadPathFileName)
       pydict = ih.todict()
       bs = ih.tobinstr()
       hex_length = len(bs)
-      print(hex_length,"bytes")
+      self.shell_output_insert_end(str(hex_length)+"bytes\n")
     except e:
       self.shell_output_insert_end(e)
       self.shell_output_insert_end("\nSomething wrong...\n")
@@ -837,7 +839,7 @@ class TextEditor:
         self.shell_output_insert_end("flash the chip.\n")
         for i in range(hex_length):
           #self.shell_output_insert_end((str(i)+"/"+str(hex_length)).strip("\n"))
-          if i % int(hex_length / 10) == 0:
+          if i % int(hex_length / 20) == 0:
             self.shell_output_insert_end("#")
           r = int.from_bytes(self.universal_read(ser,i),byteorder='little')
           if r == 255:
@@ -851,7 +853,7 @@ class TextEditor:
         self.shell_output_insert_end("verify.\n")
         for i in range(hex_length):
           #self.shell_output_insert_end((str(i),"/",str(hex_length),"\r").strip("\n"))
-          if i % int(hex_length / 10) == 0:
+          if i % int(hex_length / 20) == 0:
             self.shell_output_insert_end("#")
           r = int.from_bytes(self.universal_read(ser,i),byteorder='little')
           if r != bs[i]:
@@ -905,18 +907,23 @@ class TextEditor:
   def infoabout(self):
     messagebox.showinfo("About Simple 51 IDE","A Simple 8051 IDE\nBuilt using Python.")
 
+  def tab(self, arg):
+    #print("tab pressed")
+    self.txtarea.insert(INSERT, " " * 2)
+    return 'break'
   # Defining shortcuts Funtion
   def shortcuts(self):
+    self.txtarea.bind("<Tab>", self.tab)
     # Binding Ctrl+n to newfile funtion
-    self.txtarea.bind("<Control-n>",self.newfile)
+    self.root.bind("<Control-n>",self.newfile)
     # Binding Ctrl+o to openfile funtion
-    self.txtarea.bind("<Control-o>",self.openfile)
+    self.root.bind("<Control-o>",self.openfile)
     # Binding Ctrl+s to savefile funtion
-    self.txtarea.bind("<Control-s>",self.savefile)
+    self.root.bind("<Control-s>",self.savefile)
     # Binding Ctrl+a to saveasfile funtion
     #self.txtarea.bind("<Control-a>",self.saveasfile)
     # Binding Ctrl+e to exit funtion
-    self.txtarea.bind("<Control-e>",self.exit)
+    self.root.bind("<Control-e>",self.exit)
     # Binding Ctrl+x to cut funtion
     self.txtarea.bind("<Control-x>",self.cut)
     # Binding Ctrl+c to copy funtion
@@ -926,25 +933,25 @@ class TextEditor:
     # Binding Ctrl+u to undo funtion
     self.txtarea.bind("<Control-u>",self.undo)
 
-    self.txtarea.bind("<Control-b>",self.build)
-    self.txtarea.bind("<Control-p>",self.upload)
-    self.txtarea.bind("<Control-t>",self.terminal)
-    self.txtarea.bind("<Control-l>",self.plotter)
+    self.root.bind("<Control-b>",self.build)
+    self.root.bind("<Control-p>",self.upload)
+    self.root.bind("<Control-t>",self.terminal)
+    self.root.bind("<Control-l>",self.plotter)
 
     if platform.system() == "Darwin":
-      self.txtarea.bind("<Command-n>",self.newfile)
-      self.txtarea.bind("<Command-o>",self.openfile)
-      self.txtarea.bind("<Command-s>",self.savefile)
+      self.root.bind("<Command-n>",self.newfile)
+      self.root.bind("<Command-o>",self.openfile)
+      self.root.bind("<Command-s>",self.savefile)
       #self.txtarea.bind("<Command-a>",self.saveasfile)
-      self.txtarea.bind("<Command-e>",self.exit)
+      self.root.bind("<Command-e>",self.exit)
       #self.txtarea.bind("<Command-x>",self.cut)
       #self.txtarea.bind("<Command-c>",self.copy)
       #self.txtarea.bind("<Command-v>",self.paste)
       #self.txtarea.bind("<Command-u>",self.undo)
-      self.txtarea.bind("<Command-b>",self.build)
-      self.txtarea.bind("<Command-p>",self.upload)
-      self.txtarea.bind("<Command-t>",self.terminal)
-      self.txtarea.bind("<Command-l>",self.plotter)
+      self.root.bind("<Command-b>",self.build)
+      self.root.bind("<Command-p>",self.upload)
+      self.root.bind("<Command-t>",self.terminal)
+      self.root.bind("<Command-l>",self.plotter)
 # Creating TK Container
 root = Tk()
 # Passing Root to TextEditor Class
