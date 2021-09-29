@@ -31,8 +31,17 @@ import TKlighter
 import json
 import platform
 import intelhex
+import appdirs
 
-CONFIG_FILE='simple51ide_config.json'
+appdirs.appname="simple51ide"
+appdirs.appauthor="dahai"
+appdirs.version="beta"
+if os.path.exists(appdirs.user_data_dir(appdirs.appname, appdirs.appauthor, appdirs.version)):
+  pass
+else:
+  os.makedirs(appdirs.user_data_dir(appdirs.appname, appdirs.appauthor, appdirs.version))
+
+CONFIG_FILE=appdirs.user_data_dir(appdirs.appname, appdirs.appauthor, appdirs.version)+'/'+'simple51ide_config.json'
 
 class TextLineNumbers(Canvas):
   def __init__(self, *args, **kwargs):
@@ -197,10 +206,10 @@ class TextEditor:
     self.menubar.add_cascade(label="Help", menu=self.helpmenu)
 
     
-    framesWindow = PanedWindow(bg='lightgray',orient="vertical",sashwidth=20)#,relief=GROOVE)
-    frame_menubutton = Frame(framesWindow, height=20, bg="lightgray");
-    frame_top = Frame(framesWindow);
-    frame_bottom = Frame(framesWindow);
+    framesWindow = ttk.PanedWindow(orient="vertical")#,sashwidth=20)#bg='lightgray',,relief=GROOVE)
+    frame_menubutton = ttk.Frame(framesWindow, height=20)#, bg="lightgray");
+    frame_top = ttk.Frame(framesWindow);
+    frame_bottom = ttk.Frame(framesWindow);
 
     # button
     ButtonBuild = ttk.Button(frame_menubutton, text ="Build", command = self.build, width=8)
@@ -239,7 +248,7 @@ class TextEditor:
     self.outputarea.pack(side=BOTTOM, fill=BOTH, expand=True)
     frame_bottom.pack()
     
-    framesWindow.add(frame_top,height=320)
+    framesWindow.add(frame_top)#,height=320)
     framesWindow.add(frame_bottom)
 
     framesWindow.pack(expand=True, fill=BOTH)
@@ -684,7 +693,7 @@ class TextEditor:
     else:
       return 0  
   def do_compile(self):
-    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    cmd = "\""+self.sdccPath+"\"" + " -V -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
     if self.execute_tool(cmd):
       return 1
     self.shell_output_insert_end("\nOK\n")
@@ -788,7 +797,8 @@ class TextEditor:
     
     self.shell_output_insert_end("Reseting ISP...\n")
     # waiting for the arduinoAsISP's 8 secends.
-    for i in range(11):
+    self.shell_output_insert_end("|         |\n")
+    for i in range(10):
       self.shell_output_insert_end(".")
       time.sleep(1)
       #self.outputarea.insert(END, ".")
@@ -837,6 +847,7 @@ class TextEditor:
         self.set_pmode(ser)
         #
         self.shell_output_insert_end("flash the chip.\n")
+        self.shell_output_insert_end("|                   |\n")
         for i in range(hex_length):
           #self.shell_output_insert_end((str(i)+"/"+str(hex_length)).strip("\n"))
           if i % int(hex_length / 20) == 0:
@@ -851,6 +862,7 @@ class TextEditor:
         self.shell_output_insert_end("\n")
         #
         self.shell_output_insert_end("verify.\n")
+        self.shell_output_insert_end("|                   |\n")
         for i in range(hex_length):
           #self.shell_output_insert_end((str(i),"/",str(hex_length),"\r").strip("\n"))
           if i % int(hex_length / 20) == 0:
@@ -907,12 +919,19 @@ class TextEditor:
   def infoabout(self):
     messagebox.showinfo("About Simple 51 IDE","A Simple 8051 IDE\nBuilt using Python.")
 
+  def enter(self, arg):
+    line = self.txtarea.get("insert linestart", "insert lineend")
+    leading_space = len(line) - len(line.lstrip(' '))
+    self.txtarea.insert(INSERT, "\n")
+    self.txtarea.insert(INSERT, " " * leading_space)
+    return 'break'
   def tab(self, arg):
     #print("tab pressed")
     self.txtarea.insert(INSERT, " " * 2)
     return 'break'
   # Defining shortcuts Funtion
   def shortcuts(self):
+    self.txtarea.bind("<Return>", self.enter)
     self.txtarea.bind("<Tab>", self.tab)
     # Binding Ctrl+n to newfile funtion
     self.root.bind("<Control-n>",self.newfile)
