@@ -331,13 +331,23 @@ class TextEditor:
     print(self.portDeviceName)
         #do port selection
 
+  specialKeyTouch=0
   def light(self, event):
     #print(event)
     if event == None:
       return
     if event.keysym:
-      if event.keysym == "Up" or event.keysym == "Down" or event.keysym == "Left" or event.keysym == "Right":
-        return
+      if event.keysym == "Shift_L" or event.keysym == "Shift_R" or event.keysym == "space" or event.keysym == "BackSpace" or event.keysym == "Up" or event.keysym == "Down" or event.keysym == "Left" or event.keysym == "Right":
+        if self.specialKeyTouch == 1:
+          return
+        else:
+          self.specialKeyTouch = 1;
+      else:
+        self.specialKeyTouch = 0;
+        if event.x == 0 and event.y == 0:
+          pass
+        else:
+          return
     
     control_color = 'orange'
     type_color = 'blue'
@@ -693,7 +703,7 @@ class TextEditor:
     else:
       return 0  
   def do_compile(self):
-    cmd = "\""+self.sdccPath+"\"" + " -V -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
+    cmd = "\""+self.sdccPath+"\"" + " --verbose -o \""+os.path.dirname(self.filename)+"/\" \""+str(self.filename)+"\""
     if self.execute_tool(cmd):
       return 1
     self.shell_output_insert_end("\nOK\n")
