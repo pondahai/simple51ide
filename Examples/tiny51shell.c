@@ -299,6 +299,7 @@ char process (char *s)
           char ti=pool[i+2];
           pool[ti]++;
           if(pool[ti] < pool[ti-1]){i=ti+1;} // move pointer to FOR line 
+          else i+=3+strlen(&pool[i+3])-1;
         }
         //while(pool[++i]!=0x0);
       }       
