@@ -1,5 +1,5 @@
-//#include <8052.h>
-#include <at89x52.h>
+#include <8052.h>
+//#include <at89x52.h>
 #include <stdio.h>
 #include <math.h>
 #include <ctype.h>
@@ -34,7 +34,11 @@ char line[20];
 __idata char pool[80]={0};
 char ii=0;
 char debug=0;
-char process (char *s)  
+// 
+__idata char fl[3]={0};
+char fli=0xff;
+//
+char process (char *s)
 {
   __idata char oprand[8][8]={"","","","","","","",""};
   char si=0;
@@ -64,6 +68,8 @@ char process (char *s)
       if(quote_count>0){if(quote_count > 7){state=2; si++; continue;} quote_count++; oprand[oc][osi++]=c; state=2; si++; continue;}
       // space
       if(c==' '){if(osi==0){si++; continue;}else{oprand[oc][osi++]=0x0; osi=0; oc++; state=2; si++; continue;}}
+      // comma
+      if(c==','){oprand[oc][osi++]=0x0; osi=0; oc++; state=2; si++; continue;}
       // number
       if(isdigit(c)) {
         if(osi!=0){oprand[oc++][osi++]=0x0; osi=0;} oprand[oc][osi++]=c; state=3; si++; continue;
@@ -84,6 +90,7 @@ char process (char *s)
       else {
       // space
       if(c==' '){if(osi==0){si++; continue;}else{oprand[oc][osi++]=0x0; osi=0; oc++; state=2; si++; continue;}}
+      if(c==','){oprand[oc][osi++]=0x0; osi=0; oc++; state=2; si++; continue;}
       if(c=='+') {if(osi!=0){oprand[oc++][osi++]=0x0; osi=0;} oprand[oc][osi++]='+'; oprand[oc][osi++]=0x0; oc++; osi=0; state=2; si++; continue;}
       if(c=='-') {if(osi!=0){oprand[oc++][osi++]=0x0; osi=0;} oprand[oc][osi++]='-'; oprand[oc][osi++]=0x0; oc++; osi=0; state=2; si++; continue;}
       if(c=='*') {if(osi!=0){oprand[oc++][osi++]=0x0; osi=0;} oprand[oc][osi++]='*'; oprand[oc][osi++]=0x0; oc++; osi=0; state=2; si++; continue;}
@@ -110,20 +117,50 @@ char process (char *s)
   }
   //
   // excute
+  //        delimiter          delimiter
+  //              |                 |
+  // 01 05 80 00 00 02 03 02 03 49 00
+  // |  |   |  \     |  |  |  |  |
+  // 1 POKE 128,00  2  FOR 2TO3  I
   //
   if (isdigit(oprand[0][0])){
-    // line number
-    // convert it into pool
+    // input has line number
+    // convert it into the pool
     char pi=0;
     oc=0;
     
+    // insert new one into the pool
     while(1){
-      if(pool[pi]==0x0){ // meet 0x0
+      //if(pool[pi]==0x0){ // meet 0x0
       
-    
-        if(pi!=0x0){pi++;} // if not head, skip 0x0
-        if(pool[pi]!=0x0){ pi++;if(pi==32){ break;}else{ continue;}}
+        //if(pi!=0x0){pi++;} // if not head, skip 0x0 delimiter
+        //if(pool[pi]!=0x0){ pi++;if(pi==(80-1)){ break;}else{ continue;}} // maybe string, continue next loop
+        if(pi!=0){ // not line head
+          while(pool[pi]!=0x0){ pi++; if(pi==(80-1)) break;}
+          // skip non zero, maybe string from last keyword
+          //while(pool[pi]==0x0){ pi++; if(pi==(80-1)) break;}
+          // meet non zero
+          
+          // 
+          pi++;
+        }
         
+        // travel pool
+        if(pool[pi]!=0x0) { // not heading zero
+        //  pi++; //  maybe line number, skip it
+        //}
+          // skip any keyword
+          if(pool[pi+1] == 0x01){ pi+=2; continue;} // PRINT  LL 01 AA .. AA 00
+          if(pool[pi+1] == 0x02){ pi+=2; continue;} // RUN    LL 02 00
+          if(pool[pi+1] == 0x03){ pi+=5; continue;} // FOR    LL 03 XX YY II AA .. AA 00
+          if(pool[pi+1] == 0x04){ pi+=3; continue;} // NEXT   LL 04 @@ AA .. AA 00
+          if(pool[pi+1] == 0x05){ pi+=3; continue;} // POKE   LL AD DA 00
+        //if(pool[pi]!=0x0) { // not heading zero
+        //  pi--; // it is empty, pointer backward one position
+        }
+        
+          oc=0;
+          
           pool[pi++]=(char)atoi(oprand[oc++]); // insert line number
         
           if(strcmp(oprand[oc],"PRINT")==0) { // insert PRINT and string
@@ -141,33 +178,51 @@ char process (char *s)
           }          
           if(strcmp(oprand[oc],"FOR")==0) { // 
             pool[pi]=0x03;                  //
-            strcpy(&pool[pi+3],oprand[oc+1]); // variable name
+            strcpy(&pool[pi+4],oprand[oc+1]); // variable name
             pool[pi+1]=(char)atoi(oprand[oc+3]);
             pool[pi+2]=(char)atoi(oprand[oc+5]);
+            fli++;
+            if(fli<3){fl[fli]=pi+3;} // save the address of the for loop var.
             oc+=5;
             pi+=4;
           }          
           if(strcmp(oprand[oc],"NEXT")==0) { // 
             pool[pi]=0x04;
-            strcpy(&pool[pi+1],oprand[oc+1]); // variable name
+            pool[pi+1]=fl[fli--]; // save for loop var.'s address into next keyword
+            strcpy(&pool[pi+2],oprand[oc+1]); // variable name
             oc+=2;
-            pi+=2;
+            pi+=3;
+          }
+          if(strcmp(oprand[oc],"POKE")==0) { //
+            pool[pi]=0x05;
+            pool[pi+1]=(char)atoi(oprand[oc+1]); 
+            pool[pi+2]=(char)atoi(oprand[oc+2]);
+            pool[pi+3]=0x0;
+            oc+=2;
+            pi+=4;           
           }
         oc++;
         if(oc == 8){ break;}
         if(oprand[oc][0] == 0x0){ break;}        
-      }else{
-        pi++;
-        if(pi==32){ break;}
-      }
+      //}else{
+      //  pi++;
+      //  if(pi==(80-1)){ break;}
+      //}
     }
     
   }else{
+    //
     // intepretor
+    //
     if(strcmp(oprand[0],"PRINT")==0){
       if(strcmp(oprand[1],"\"")==0){
         printf_tiny("%s\r\n",oprand[2]);
       }
+    }
+    if(strcmp(oprand[0],"POKE")==0){
+      char addr=(char)atoi(oprand[1]);
+      char data=(char)atoi(oprand[2]);
+      if(addr == 0x80) P0=data;
     }
     if(strcmp(oprand[0],"DEBUG")==0){
       debug=~debug;
@@ -175,6 +230,8 @@ char process (char *s)
     if(strcmp(oprand[0],"NEW")==0){
       for (char i=0;i<80;i++) {pool[i]=0x0;}
     }
+    //
+    // LIST
     //
     if(strcmp(oprand[0],"LIST")==0){
      if(debug){
@@ -185,6 +242,7 @@ char process (char *s)
         memcnt++;
       }
       printf_tiny("\r\n%d\r\n",memcnt);
+      printf_tiny("%x %x %x\r\n",fl[0],fl[1],fl[2]);
       printf_tiny("\r\n");
      }
       for (char i=0;i<80;i++){
@@ -192,38 +250,57 @@ char process (char *s)
         printf_tiny("%d ", pool[i]);
         if(pool[i+1]==0x1){ // PRINT
           printf_tiny("PRINT \"%s\"\r\n", &pool[i+2]);
-          i+=2;
+          i+=2+strlen(&pool[i+2]);
+        }
+        if(pool[i+1]==0x5){ // POKE
+          printf_tiny("POKE %d,%d\r\n", pool[i+2], pool[i+3]);
+          i+=3;
         }
         if(pool[i+1]==0x3){ // FOR
-          printf_tiny("FOR %s = %d TO %d\r\n", &pool[i+4], pool[i+2], pool[i+3]);
-          i+=4;
+          printf_tiny("FOR %s = %d TO %d\r\n", &pool[i+5], pool[i+2], pool[i+3]);
+          i+=5+strlen(&pool[i+5]);
         }
         if(pool[i+1]==0x4){ // NEXT 
-          printf_tiny("NEXT %s\r\n", &pool[i+2]);
-          i+=2;
+          printf_tiny("NEXT %s\r\n", &pool[i+3]);
+          i+=3+strlen(&pool[i+3]);
         }
         if(pool[i+1]==0x2){ // RUN
           printf_tiny("RUN\r\n");
           i+=1;
         }
-        while(pool[++i]!=0x0);
+        //while(pool[++i]!=0x0); // if string, travel to  the end of string
       }       
       printf_tiny("\r\n");
     } // LIST
+    //
+    // RUN
     //
     if(strcmp(oprand[0],"RUN")==0){
       for (char i=0;i<80;i++){
         if(pool[i] == 0x0) continue;
         
-        if(pool[i+1]==1){ // PRINT
+        if(pool[i+1]==0x1){ // PRINT
           printf_tiny("%s\r\n", &pool[i+2]);
-          i+=2;
+          i+=2+strlen(&pool[i+2]);
         }
-        if(pool[i+1]==2){ // RUN
+        if(pool[i+1]==0x5){ // POKE
+          if(pool[i+2] == 0x80) P0=pool[i+3];
+          i+=3;
+        }
+        if(pool[i+1]==0x2){ // RUN
           i=0xff;
           continue;
         }
-        while(pool[++i]!=0x0);
+        if(pool[i+1]==0x3){ // FOR
+          pool[i+4]=pool[i+2];
+          i+=5+strlen(&pool[i+5]);
+        }
+        if(pool[i+1]==0x4){ // NEXT
+          char ti=pool[i+2];
+          pool[ti]++;
+          if(pool[ti] < pool[ti-1]){i=ti+1;} // move pointer to FOR line 
+        }
+        //while(pool[++i]!=0x0);
       }       
       printf_tiny("\r\n");      
     }// RUN
