@@ -151,10 +151,10 @@ char process (char *s)
         //}
           // skip any keyword
           if(pool[pi+1] == 0x01){ pi+=2; continue;} // PRINT  LL 01 AA .. AA 00
-          if(pool[pi+1] == 0x02){ pi+=2; continue;} // RUN    LL 02 00
+          if(pool[pi+1] == 0x02){ pi+=3; continue;} // RUN    LL 02 00
           if(pool[pi+1] == 0x03){ pi+=5; continue;} // FOR    LL 03 XX YY II AA .. AA 00
           if(pool[pi+1] == 0x04){ pi+=3; continue;} // NEXT   LL 04 @@ AA .. AA 00
-          if(pool[pi+1] == 0x05){ pi+=3; continue;} // POKE   LL AD DA 00
+          if(pool[pi+1] == 0x05){ pi+=4; continue;} // POKE   LL AD DA 00
         //if(pool[pi]!=0x0) { // not heading zero
         //  pi--; // it is empty, pointer backward one position
         }
@@ -250,7 +250,7 @@ char process (char *s)
         printf_tiny("%d ", pool[i]);
         if(pool[i+1]==0x1){ // PRINT
           printf_tiny("PRINT \"%s\"\r\n", &pool[i+2]);
-          i+=2+strlen(&pool[i+2]);
+          i+=2+strlen(&pool[i+2])-1;
         }
         if(pool[i+1]==0x5){ // POKE
           printf_tiny("POKE %d,%d\r\n", pool[i+2], pool[i+3]);
@@ -258,11 +258,11 @@ char process (char *s)
         }
         if(pool[i+1]==0x3){ // FOR
           printf_tiny("FOR %s = %d TO %d\r\n", &pool[i+5], pool[i+2], pool[i+3]);
-          i+=5+strlen(&pool[i+5]);
+          i+=5+strlen(&pool[i+5])-1;
         }
         if(pool[i+1]==0x4){ // NEXT 
           printf_tiny("NEXT %s\r\n", &pool[i+3]);
-          i+=3+strlen(&pool[i+3]);
+          i+=3+strlen(&pool[i+3])-1;
         }
         if(pool[i+1]==0x2){ // RUN
           printf_tiny("RUN\r\n");
@@ -281,7 +281,7 @@ char process (char *s)
         
         if(pool[i+1]==0x1){ // PRINT
           printf_tiny("%s\r\n", &pool[i+2]);
-          i+=2+strlen(&pool[i+2]);
+          i+=2+strlen(&pool[i+2])-1;
         }
         if(pool[i+1]==0x5){ // POKE
           if(pool[i+2] == 0x80) P0=pool[i+3];
@@ -293,7 +293,7 @@ char process (char *s)
         }
         if(pool[i+1]==0x3){ // FOR
           pool[i+4]=pool[i+2];
-          i+=5+strlen(&pool[i+5]);
+          i+=5+strlen(&pool[i+5])-1;
         }
         if(pool[i+1]==0x4){ // NEXT
           char ti=pool[i+2];
