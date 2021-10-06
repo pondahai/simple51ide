@@ -35,6 +35,7 @@ AT89S系列MCU是ATMEL公司開發的MCS-51族系單晶片
 ### 程式上傳器  
 程式上傳器（ArduinoAsISP）運作原理圖  
 ![](arduinoAs51ISP.png) 
+/ArduinoISPserialThrough
 這個ArduinoAsISP有修改過  
 可以讓ArduinoAsISP除了原本的程式上傳功能外  
 還可以自動切換成串列埠資料中繼站  
